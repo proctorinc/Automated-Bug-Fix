@@ -1,53 +1,62 @@
 #!/bin/bash
-# cherrypick v1.0
+# Cherrypick
 # @author Matt Proctor
-# 2021-01-06
+# Last update: 2022-01-05
 
 ########## VERSION 1.0
 #
 # Additions:
 # Version 1.0 automates the creation of the cherry-picking commands by taking the git repo that it is called in
-#       and collecting the branches. It then removes unwanted branches, adds in checkout commands and 
-#       cherry-pick commands with the commit id and saves them all into pick.sh, which can be saved wherever 
-#       the user prefers. User runs pick.sh, solves merge conflicts and manually removes previously cherry-picked
-#       branches until everything is solved.
+#	and collecting the branches. It then removes unwanted branches, adds in checkout commands and
+#	cherry-pick commands with the commit id and saves them all into pick.sh, which can be saved wherever
+#	the user prefers. User runs pick.sh, solves merge conflicts and manually removes previously cherry-picked
+#	branches until everything is solved.
 #
-########## Setup Help:
-# 1. Save this file in /usr/local/bin so you can call it from anywhere
-# 2. Change output location (below) to where you want to save the output pick.sh file
-# 	(preferably in the folder where your repos are)
-# 3. Once you make the fix, stay in the repo and call this script, pick.sh will be created in your
-#	designated output location and you can continue cherrypicking normally
-
-# Where to output pick.sh
-output_location="/home/mproctor/bug-fixes/"
+########## VERSION 2.0
+#
+# Additions:
+# Version 2.0 automates the cherry-picking commands. No longer outputs to pick.sh, but holds them in an array.
+#       Goes through all commands and executes them. If merge conflict occurs it automatically opens VS code
+#       for the user to solve the merge conflict and then prompts the user for how they resolved it. Based off
+#       of that, it automatically chooses to cherry-pick --abort or cherry-pick --continue and moves on to the
+#       next branch until all branches are cherry-picked
 
 # Colors
+BLACK='\033[0;30m'
 RED='\033[0;31m'
 ORANGE='\033[0;33m'
-GREEN='\033[1;32m'
+GREEN='\033[0;32m'
 DGRAY='\033[1;30m'
+BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+PURPLE='\033[0;35m'
+YELLOW='\033[1;33m'
+LGREEN='\033[1;32m'
+WHITE='\033[1;37m'
+
+verbose=1
 
 # Display help
 Help() {
-   echo "cherrypick creates a file called pick.sh to cherry pick all of the branches in the git repo"
-   echo
-   echo "Must be called inside of a git repository"
-   echo "Usage: cherrypick or ./cherrypick or sh cherrypick"
-   echo "Outputs: $output_location/pick.sh"
-   echo
+    echo "${NC}cherrypick automatically cherry-picks all of the branches in the git repo based off of the commit"
+    echo
+    echo "Must be called inside of a git repository"
+    echo "Save this program in /usr/local/bin"
+    echo "Usage: cherrypick"
+    echo
+    echo "When Merge conflict occurs: VS code will launch, solve the conflict and close the editor."
+    echo "Return to the terminal and enter 'i' for the incoming change was accepted, or 'c' for the current change was accepted"
+    echo
 }
 
 # Make sure command is ran inside of a git repo
 if [ ! -d .git ]; then
-    echo -e "${RED}Error: cherrypick.sh must be called from inside of a git repository"
-    exit 1
+	echo -e "${RED}Error: cherrypick must be called from inside of a git repository"
+	exit 1
 fi;
 
-echo -e "${DGRAY}Repo: ${GREEN}${PWD##*/}"
-
 # Define arguments for script
-while getopts :h: flag
+while getopts :hr: flag
 do
     case "${flag}" in
 	h) Help
@@ -55,34 +64,143 @@ do
     esac
 done
 
-# Get repo id from "git log"
+if [[ $verbose -eq 1 ]]; then
+    echo -e "${YELLOW}VERBOSE MODE ON"
+fi
+
+# Print current directory (aka repo)
+echo -e "${DGRAY}Repo: ${CYAN}${PWD##*/}"
+
+# Get git commit id
 id=$(git -C $PWD log | awk 'NR==1 {print $2}')
 
-echo -e "${DGRAY}Commit id: ${GREEN}${id}"
+# Print commit id
+echo -e "${DGRAY}Commit id: ${CYAN}${id}"
 
 # Store branches in array
 # 1. Gets all branches with 'git branch --all'
-# 2. Removes unwanted branch names including HEAD, master, review, and main
+# 2. Removes unwanted branch names including HEAD, secure, review, and main
 # 3. Removes ' remotes/origin/'
-readarray -t branches < <(git -C $PWD branch -r | grep -v "HEAD" | grep -v "changes" | grep -v "master" | grep -v "review" | grep -v "main" | sed -e "s/  origin\///g" | sed -e "s/$//g")
 
-echo -e "${DGRAY}Generated: ${ORANGE}(${#branches[@]}) ${GREEN}cherry-pick commands"
+# edit: removed  head -n -2, sed 1d
+# edit: added generic removal of lines with HEAD, secure, review, and main
+# edit: removed secure, added master
+readarray -t branches < <(git -C $PWD branch -r | grep -v "HEAD" | grep -v "review" | grep -v "main" | grep -v "master" | sed -e "s/  origin\///g" | sed -e "s/$//g")
 
-# If pick.sh exists, remove it (hide errors)
-rm ${output_location}pick.sh 2>/dev/null
+# Get number of branches
+num_branches=${#branches[@]}
 
-# Create pick.sh
-touch ${output_location}pick.sh
+# Start count for branches completed
+count=0
 
-echo -e "${DGRAY}Created: ${GREEN}${output_location}pick.sh"
+# Print number of commands
+echo -e "${DGRAY}Generated: ${LGREEN}($num_branches) ${CYAN}cherry-pick commands\n"
 
-# For each branch, creates cherrypicking command
-# Creates pick.sh in ~/bug-fixes/ and outputs this into it
+# Execute command in each branch
 for branch in "${branches[@]}"; do
-    echo "git checkout $branch && git cherry-pick $id" >> ${output_location}pick.sh
+
+    # Calculate percentage of branches cherry-picked
+    percent_complete=$(($count*100/$num_branches))
+
+    # Checkout to branch
+    checkout_result=$(git checkout $branch 2>&1)
+
+    if [[ $verbose -eq 1 ]]; then
+	echo -e "${YELLOW}Checkout result"
+        echo -e "$checkout_result"
+    fi
+
+    # Detect error in checkout to branch
+    if echo $checkout_result | grep -q "error"; then
+
+	# Detect merge conflict
+	if echo $checkout_result | grep -q "you need to resolve your current index first"; then
+
+	    # Get current branch
+	    current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+	    # Alert user of merge conflict
+	    echo -e "${DGRAY}Cherry-pick $branch: ${ORANGE}MERGE CONFLICT ($current_branch)"
+
+	    # Open VS Code to solve merge conflict
+	    code .
+
+	    # User confirms when they have solved the merge conflict
+	    echo -e "${GREEN}"
+#	    echo -e "${GREEN}Press Enter after merge conflict is resolved"
+
+	    while [[ -z "$continue" ]]; do
+		read "Enter 'c' for current, 'i' for incoming: "$continue
+
+		if [[ "$continue" -eq "c" ]]; then
+		    if [[ $verbose -eq 1 ]]; then
+         	        echo -e "${YELLOW}git cherry-pick --abort"
+     		    fi
+	            git cherry-pick --abort
+	        elif [[ "$continue" -eq "i" ]]; then
+                    if [[ $verbose -eq 1 ]]; then
+                        echo -e "${YELLOW}git cherry-pick --continue"
+                    fi
+	            git cherry-pick --continue
+	        fi
+	    done
+
+	    # Add and continue
+#	    git add . 2>/dev/null
+#	    git cherry-pick --continue 2>/dev/null
+	    echo -e "${LGREEN}[${percent_complete}%]${DGRAY}Merge Conflict $branch: ${LGREEN}COMPLETE"
+
+	# Detect changes have been committed before cherry-picking
+	elif echo $checkout_result | grep -q "Your local changes to the following files would be overwritten by checkout"; then
+
+	    # Get current branch
+            current_branch=$(git rev-parse --abbrev-ref HEAD)
+
+	    echo -e "${RED}ERROR: unsaved changes in current branch ($current_branch) make sure to add changes and commit before cherry-picking"
+	    exit 1
+	# Otherwise no merge conflict, other error occured
+	else
+	    # Alert user of error, exit program
+	    echo -e "${DGRAY}Checkout to $branch: ${RED}ERROR"
+	    echo -e "${DGRAY}UNKNOWN ERROR: ${RED}$checkout_result"
+	    exit 1
+	fi
+    # Successful checkout to branch
+    else
+	# Cherry-pick branch
+	cherrypick_result=$(git cherry-pick $id 2>&1)
+
+	if [[ $verbose -eq 1 ]]; then
+	    echo -e "${YELLOW}Cherry-pick result"
+            echo -e "$cherrypick_result"
+        fi
+
+	# Detect cherry-pick error
+#	if echo $cherrypick_result | grep -q "hint: commit" || echo $cherrypick_result | grep -q "hint: and commit"; then
+#            echo -e "${RED}ERROR: Add and Commit before cherry-picking"
+#	    echo -e "${NC}Ex: git add ."
+#	    echo -e "${NC}Ex: git commit -m '<explanation of commit>'"
+#	    exit 1
+#	elif echo $cherrypick_result | grep -q "git commit --allow-empty"; then
+#	    echo -e "${RED}ERROR: Cherry pick is empty"
+#	    echo -e "${CYAN}git commit --allow-empty"
+#	    git commit --allow-empty
+	    #&>/dev/null
+#	else
+#	    if [[ $verbose -eq 1 ]]; then
+#		echo -e "${YELLOW}Cherry-pick result"
+#		echo -e "$cherrypick_result"
+#	    fi
+#	fi
+
+	# Inform user of successful cherry-pick
+	echo -e "${LGREEN}[${percent_complete}%]${DGRAY}Cherry-pick $branch: ${LGREEN}COMPLETE"
+    fi
+
+    # Increment count
+    count=$((count+1))
 done
 
-# Prep pick.sh to be ran
-chmod +x ${output_location}pick.sh
+echo -e "${LGREEN}[100%]${WHITE}Finished."
 
-echo -e "${DGRAY}Enabled executable: ${GREEN}pick.sh"
+echo -e "\n${DGRAY}Run Command: ${ORANGE}git push --all"

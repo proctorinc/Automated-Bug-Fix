@@ -1,18 +1,17 @@
-# VERSION 1.0
+# VERSION 2.0
 
 Author: Matt Proctor
 
-Creation: 2021-01-06
+Creation: 2022-01-10
 
-Version 1.0 automates the creation of the cherry-picking commands by taking the git repo that it is called in
-and collecting the branches. It then removes unwanted branches, adds in checkout commands and 
-cherry-pick commands with the commit id and saves them all into pick.sh, which can be saved wherever 
-the user prefers. User runs pick.sh, solves merge conflicts and manually removes previously cherry-picked
-branches until everything is solved.
+Version 2.0 automates the cherry-picking commands. No longer outputs to pick.sh, but holds them in an array.
+Goes through all commands and executes them. If merge conflict occurs it automatically opens VS code
+for the user to solve the merge conflict and then prompts the user for how they resolved it. Based off
+of that, it automatically chooses to cherry-pick --abort or cherry-pick --continue and moves on to the
+next branch until all branches are cherry-picked
 
 ## Setup Help:
 1. Save this file in /usr/local/bin so you can call it from anywhere
-2. Change output location (below) to where you want to save the output pick.sh file
-	(preferably in the folder where your repos are)
-3. Once you make the fix, stay in the repo and call this script, pick.sh will be created in your
-	designated output location and you can continue cherrypicking normally
+2. Call this from inside of the repo after you have made the fix
+3. VSCode will be opened whenever a merge conflict is encountered
+4. To solve the merge conflict enter the method you solved it to continue
