@@ -1,0 +1,88 @@
+#!/bin/bash
+# cherrypick v1.0
+# @author Matt Proctor
+# 2021-01-06
+
+########## VERSION 1.0
+#
+# Additions:
+# Version 1.0 automates the creation of the cherry-picking commands by taking the git repo that it is called in
+#       and collecting the branches. It then removes unwanted branches, adds in checkout commands and 
+#       cherry-pick commands with the commit id and saves them all into pick.sh, which can be saved wherever 
+#       the user prefers. User runs pick.sh, solves merge conflicts and manually removes previously cherry-picked
+#       branches until everything is solved.
+#
+########## Setup Help:
+# 1. Save this file in /usr/local/bin so you can call it from anywhere
+# 2. Change output location (below) to where you want to save the output pick.sh file
+# 	(preferably in the folder where your repos are)
+# 3. Once you make the fix, stay in the repo and call this script, pick.sh will be created in your
+#	designated output location and you can continue cherrypicking normally
+
+# Where to output pick.sh
+output_location="/home/mproctor/bug-fixes/"
+
+# Colors
+RED='\033[0;31m'
+ORANGE='\033[0;33m'
+GREEN='\033[1;32m'
+DGRAY='\033[1;30m'
+
+# Display help
+Help() {
+   echo "cherrypick creates a file called pick.sh to cherry pick all of the branches in the git repo"
+   echo
+   echo "Must be called inside of a git repository"
+   echo "Usage: cherrypick or ./cherrypick or sh cherrypick"
+   echo "Outputs: $output_location/pick.sh"
+   echo
+}
+
+# Make sure command is ran inside of a git repo
+if [ ! -d .git ]; then
+    echo -e "${RED}Error: cherrypick.sh must be called from inside of a git repository"
+    exit 1
+fi;
+
+echo -e "${DGRAY}Repo: ${GREEN}${PWD##*/}"
+
+# Define arguments for script
+while getopts :h: flag
+do
+    case "${flag}" in
+	h) Help
+	exit;;
+    esac
+done
+
+# Get repo id from "git log"
+id=$(git -C $PWD log | awk 'NR==1 {print $2}')
+
+echo -e "${DGRAY}Commit id: ${GREEN}${id}"
+
+# Store branches in array
+# 1. Gets all branches with 'git branch --all'
+# 2. Removes unwanted branch names including HEAD, master, review, and main
+# 3. Removes ' remotes/origin/'
+readarray -t branches < <(git -C $PWD branch -r | grep -v "HEAD" | grep -v "changes" | grep -v "master" | grep -v "review" | grep -v "main" | sed -e "s/  origin\///g" | sed -e "s/$//g")
+
+echo -e "${DGRAY}Generated: ${ORANGE}(${#branches[@]}) ${GREEN}cherry-pick commands"
+
+# If pick.sh exists, remove it (hide errors)
+rm ${output_location}pick.sh 2>/dev/null
+
+# Create pick.sh
+touch ${output_location}pick.sh
+
+echo -e "${DGRAY}Created: ${GREEN}${output_location}pick.sh"
+
+# For each branch, creates cherrypicking command
+# Creates pick.sh in ~/bug-fixes/ and outputs this into it
+for branch in "${branches[@]}"; do
+    echo "git checkout $branch && git cherry-pick $id" >> ${output_location}pick.sh
+done
+
+# Prep pick.sh to be ran
+chmod +x ${output_location}pick.sh
+
+echo -e "${DGRAY}Enabled executable: ${GREEN}pick.sh"
