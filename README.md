@@ -1,6 +1,8 @@
 # VERSION 1.0
 cherrypick v1.0
+
 Matt Proctor
+
 2021-01-06
 
 Version 1.0 automates the creation of the cherry-picking commands by taking the git repo that it is called in
