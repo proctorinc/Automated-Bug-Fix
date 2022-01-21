@@ -1,7 +1,7 @@
 #!/bin/bash
 # Cherrypick
 # @author Matt Proctor
-# Last update: 2022-01-13
+# Last update: 2022-01-05
 
 ########## VERSION 1.0
 #
@@ -16,13 +16,30 @@
 #
 # Additions:
 # Version 2.0 automates the cherry-picking commands. No longer outputs to pick.sh, but holds them in an array.
-#	Goes through all commands and executes them. If merge conflict occurs it automatically opens VS code
-#	for the user to solve the merge conflict and then prompts the user for how they resolved it. Based off
-#	of that, it automatically chooses to cherry-pick --abort or cherry-pick --continue and moves on to the
-#	next branch until all branches are cherry-picked
+#       Goes through all commands and executes them. If merge conflict occurs it automatically opens VS code 
+#       for the user to solve the merge conflict and then prompts the user for how they resolved it. Based off
+#       of that, it automatically chooses to cherry-pick --abort or cherry-pick --continue and moves on to the
+#       next branch until all branches are cherry-picked
 #
-# Version 2.1 removes the need to choose how you resolved the merge conflict. User now presses enter to confirm
-#	that the conflict has been resolved and it will continue.
+########## VERSION 3.0
+#
+# Additions:
+# Version 3.0 differs from 2.0 as it automates more of the bug fixing process, including:
+# 1. Automatically running jira jql query to avoid manual copying and pasting
+#
+# IN PROGRESS:
+# After finishing, ask to confirm git push
+#	Open url for jira CHLC
+#
+# GOALS:
+# 1. Normal cherry-picking COMPLETE
+# 2. Get CHLRQ of issue
+# 3. Get CHLC of challenge (jira REST api?)
+# 4. Get Parent CHLC (jira REST api?)
+# 5. Auto transition CHLRQ
+# 6. Auto link CHLRQ in CHLC
+# 7. Bulk transition all CHLC's, assign Thomas, comment link to CHLRQ (Change from manual to auto)
+# 8. Remind user to go into the CMS to update files
 
 # Colors
 BLACK='\033[0;30m'
@@ -35,9 +52,9 @@ CYAN='\033[0;36m'
 PURPLE='\033[0;35m'
 YELLOW='\033[1;33m'
 LGREEN='\033[1;32m'
-WHITE='\033[1;37m'
+WHITE='\033[1;37m' # No color
 
-verbose=0
+verbose=1
 
 # Display help
 Help() {
@@ -72,20 +89,23 @@ if [[ $verbose -eq 1 ]]; then
 fi
 
 # Print current directory (aka repo)
+echo -e "${DGRAY}Repo: ${CYAN}${PWD##*/}"
+
 # Get git commit id
 id=$(git -C $PWD log | awk 'NR==1 {print $2}')
 
 # Print commit id
 echo -e "${DGRAY}Commit id: ${CYAN}${id}"
 
-# Get initial branch to avoid cherry-picking
-initial_branch=$(git rev-parse --abbrev-ref HEAD)
-
 # Store branches in array
 # 1. Gets all branches with 'git branch --all'
-# 2. Removes unwanted branch names including HEAD, master, review, main, temp, and initial_branch
+# 2. Removes unwanted branch names including HEAD, secure, review, and main
 # 3. Removes ' remotes/origin/'
-readarray -t branches < <(git -C $PWD branch -r | grep -v "$initial_branch" | grep -v "temp" | grep -v "HEAD" | grep -v "changes" | grep -v "review" | grep -v "main" | grep -v "master" | sed -e "s/  origin\///g" | sed -e "s/$//g")
+
+# edit: removed  head -n -2, sed 1d
+# edit: added generic removal of lines with HEAD, secure, review, and main
+# edit: removed secure, added master
+readarray -t branches < <(git -C $PWD branch -r | grep -v "HEAD" | grep -v "review" | grep -v "main" | grep -v "master" | sed -e "s/  origin\///g" | sed -e "s/$//g")
 
 # Get number of branches
 num_branches=${#branches[@]}
@@ -99,7 +119,6 @@ echo -e "${DGRAY}Generated: ${LGREEN}($num_branches) ${CYAN}cherry-pick commands
 # Execute command in each branch
 while [[ count -lt "${#branches[@]}" ]]; do
 
-    # Get next branch
     branch=${branches[$count]}
 
     # Calculate percentage of branches cherry-picked
@@ -123,8 +142,41 @@ while [[ count -lt "${#branches[@]}" ]]; do
 	# Detect Error: merge conflict
 	if echo $checkout_result | grep -q "you need to resolve your current index first"; then
 
-	    # This means you messed up real bad
-	    echo -e "${RED}BAD: MERGE CONFLICT WAS NOT SOLVED"
+	    echo -e "${RED}BAD: MERGE CONFLICT CONTINUED"
+
+#	    # Alert user of merge conflict
+#	    echo -e "${ORANGE}[!!]${DGRAY}Cherry-pick $current_branch: ${ORANGE}MERGE CONFLICT${GREEN}"
+#
+#	    # Open VS Code to solve merge conflict
+#	    code .
+#
+#	    # User confirms when they have solved the merge conflict
+#	    while [[ "$choice" != "c" && "$choice" != "i" ]]; do
+#		read -p "Enter 'c' for current, 'i' for incoming: " choice
+#
+#		if [[ "$choice" == "c" ]]; then
+#		    if [[ $verbose -eq 1 ]]; then
+#         	        echo -e "${YELLOW}git cherry-pick --abort"
+#     		    fi
+#		    echo -e "${ORANGE}Current change accepted"
+#	            git cherry-pick --abort
+#	        elif [[ "$choice" == "i" ]]; then
+#                    if [[ $verbose -eq 1 ]]; then
+#                        echo -e "${YELLOW}git cherry-pick --continue"
+#                    fi
+#		    echo -e "${ORANGE}Incoming change accepted"
+#	            git cherry-pick --continue
+#		else
+#		    echo -e "${RED}'${choice}' is not a valid option"
+#	        fi
+#	    done
+#	    unset choice
+#
+#	    # Inform user of successful cherry-pick, branch complete
+#       	    echo -e "${LGREEN}[${percent_complete}%]${DGRAY}Cherry-pick $current_branch: ${LGREEN}COMPLETE"
+#
+#            # Increment count (aka step to next branch)
+#            count=$((count+1))
 
 	# Detect Error: repo has not committed before cherry-picking
 	elif echo $checkout_result | grep -q "Your local changes to the following files would be overwritten by checkout"; then
@@ -150,6 +202,11 @@ while [[ count -lt "${#branches[@]}" ]]; do
             echo -e "$cherrypick_result"
         fi
 
+	############################################
+	#					   #
+	# Make sure no cherry-picking errors occur #
+	#					   #
+	############################################
 	# Detect Error: merge conflict
         if echo $cherrypick_result | grep -q "hint: after resolving the conflicts, mark the corrected paths"; then
 	    # Alert user of merge conflict
@@ -158,17 +215,45 @@ while [[ count -lt "${#branches[@]}" ]]; do
             # Open VS Code to solve merge conflict
             code .
 
-	    echo -e "${DGRAY}Press ${LGREEN}[ENTER] ${DGRAY}when changes have been made${GREEN}"
-	    read -s enter
+            # User confirms when they have solved the merge conflict
+            while [[ "$choice" != "c" && "$choice" != "i" ]]; do
+                read -p "Enter 'c' for current, 'i' for incoming: " choice
 
-	    git add . &>/dev/null
-	    git cherry-pick --continue
+                if [[ "$choice" == "c" ]]; then
+                    if [[ $verbose -eq 1 ]]; then
+                        echo -e "${YELLOW}git cherry-pick --abort"
+                    fi
+                    echo -e "${ORANGE}Current change accepted"
+                    git cherry-pick --abort
+                elif [[ "$choice" == "i" ]]; then
+                    if [[ $verbose -eq 1 ]]; then
+                        echo -e "${YELLOW}git cherry-pick --continue"
+                    fi
+                    echo -e "${ORANGE}Incoming change accepted"
+                    git cherry-pick --continue
+                else
+                    echo -e "${RED}'${choice}' is not a valid option"
+                fi
+            done
+            unset choice
 	fi
+
+	# Inform user of successful cherry-pick, branch complete
+	echo -e "${LGREEN}[${percent_complete}%]${DGRAY}Cherry-pick $current_branch: ${LGREEN}COMPLETE"
+
+	# Increment count (aka step to next branch)
+        count=$((count+1))
     fi
-
-    # Inform user of successful cherry-pick, branch complete
-    echo -e "${LGREEN}[${percent_complete}%]${DGRAY}Cherry-pick $current_branch: ${LGREEN}COMPLETE"
-
-    # Increment count (aka step to next branch)
-    count=$((count+1))
 done
+
+read -p "\n${DGRAY}Press enter to run command: ${ORANGE}git push" enter
+
+git push
+
+read -p "Enter Grandparent CHLQ (this CHLRQ <- Parent CHLC <- Grandparent CHLC): " chlc
+
+echo -e "${DGRAY}Opening Jira with jql query..."
+
+xdg-open "https://securecodewarrior.atlassian.net/browse/CHLC-8347?jql=project%20%3D%20%22CHLC%22%20and%20issuetype%3D%20challenge%20and%20issue%20in%20linkedIssues(%22CHLC-${chlc}%22)%20ORDER%20BY%20created%20DESC"
+
+echo -e "${LGREEN}Complete."
