@@ -1,6 +1,6 @@
-# cherrypick v1.0
-## Matt Proctor
-## 2021-01-06
+cherrypick v1.0
+Matt Proctor
+2021-01-06
 
 # VERSION 1.0
 
