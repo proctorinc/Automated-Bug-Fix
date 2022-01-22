@@ -1,25 +1,71 @@
-# VERSION 3.0
+# VERSION 3.2
 
 Author: Matt Proctor
 
-Creation: 2022-01-15
+Creation: 2022-01-19
 
+## Contact:
+If any issues or edge cases occur that should be handled, please email mproctor@securecodewarrior.com
+
+(For SCW Team Members: slack me on the securecodewarrior slack channel and I will look into fixes and updates)
+
+## About:
+Walks you through the process of bug fixing step by step. Automates as many steps as possible.
+Automatically determines if repo is a full app and auto creates cherry-picking commands.
+Automates cherry-picking process and shows progress. Opens VS code whenever a merge conflict
+occurs. Opens up Jira with JQL query in browser with just the CHLC input. Reminds of final
+steps for closing, linking, and transitioning all CHLRQ's and CHLC's
+
+## Details:
+- Supports minified and full apps, cherry-picks accordingly
+
+- Stops user if errors occur. Ex: not a repo, no changes in repo, invalid input
+
+- Yellow text informs user of manual tasks to perform outside of the program (in browser)
+
+- Gray text with white colon informs user to input information
+
+## Setup and usage help:
+1. Save this file in /usr/local/bin so it can be called anywhere:
+
+	command: sudo mv bug-fix-auto /usr/local/bin/bug-fix-auto
+
+	command: sudo chmod +x /usr/local/bin/bug-fix-auto
+
+2. Clone repo from github and have the CMS and Jira tickets open
+3. Run the program (-d for debug, -p for nopush for testing):
+
+	command: bug-fix-auto [-d] [-p]
+
+4. Follow the Steps of the program
+
+	- Yellow means manual tasks outside of the program (ie: Jira)
+
+	- White colon means enter data
+
+	- Press [Enter] to confirm steps when prompted
+
+## Version History
 Version 3.0 differs from 2.0 as it automates more of the bug fixing process, including:
-	Automatically running jira jql query to avoid manual copying and pasting.
+        Automatically running jira jql query to avoid manual copying and pasting.
 
-## IN PROGRESS:
-1. Normal cherry-picking COMPLETE
-2. Get CHLRQ of issue
-3. Get CHLC of challenge (jira REST api?)
-4. Get Parent CHLC (jira REST api?)
-5. Auto transition CHLRQ
-6. Auto link CHLRQ in CHLC
-7. Bulk transition all CHLC's, assign Thomas, comment link to CHLRQ (Change from manual to auto)
-8. Remind user to go into the CMS to update files
+Version 3.1 added bug-fix-auto program side by side with cherrypick. Runs through bug-fix
+	process and calls cherry-pick script when needed. Now encompasses the entire
+	bug-fix process. Added in helpful user reminders to do all steps in the process
+	and automates as much as it can.
 
-## Setup and usage Help:
-1. Save this file in /usr/local/bin so you can call it from anywhere
-2. Call this from inside of the repo after you have made the fix
-3. VSCode will be opened whenever a merge conflict is encountered
-4. Press Enter to continue after you have resolved the conflict
-5. Automatically opens up CHLC jql query in your browser
+Version 3.2 Combined bug-fix-auto and cherrypick officially into one single program.
+	Cherrypick is now a method inside of the larger bug-fix program. Added arguments
+	for enabling debug mode and nopush mode (doesn't let the program push to the repo
+	for testing purposes). Also auto checks for full app and only cherry-picks if it
+	is a full app and not minified. Added more user friendly reminders, colored text
+	to help users understand functionality. 
+
+## In progress
+1. Validation for Jira CHLC #, if incorrect there is no way to go back
+
+(Work around: use auto-jql program)
+
+2. Possible Jira REST integration soon, if possible to automate more manual steps
+
+3. Possibly integrate cloning repo in the beginning
