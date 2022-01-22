@@ -46,20 +46,37 @@ steps for closing, linking, and transitioning all CHLRQ's and CHLC's
 	- Press [Enter] to confirm steps when prompted
 
 ## Version History
-Version 3.0 differs from 2.0 as it automates more of the bug fixing process, including:
-        Automatically running jira jql query to avoid manual copying and pasting.
-
-Version 3.1 added bug-fix-auto program side by side with cherrypick. Runs through bug-fix
-	process and calls cherry-pick script when needed. Now encompasses the entire
-	bug-fix process. Added in helpful user reminders to do all steps in the process
-	and automates as much as it can.
-
-Version 3.2 Combined bug-fix-auto and cherrypick officially into one single program.
+**Version 3.2** Combined bug-fix-auto and cherrypick officially into one single program.
 	Cherrypick is now a method inside of the larger bug-fix program. Added arguments
 	for enabling debug mode and nopush mode (doesn't let the program push to the repo
 	for testing purposes). Also auto checks for full app and only cherry-picks if it
 	is a full app and not minified. Added more user friendly reminders, colored text
-	to help users understand functionality. 
+	to help users understand functionality.
+
+**Version 3.1** added bug-fix-auto program side by side with cherrypick. Runs through bug-fix
+	process and calls cherry-pick script when needed. Now encompasses the entire
+	bug-fix process. Added in helpful user reminders to do all steps in the process
+	and automates as much as it can.
+
+**Version 3.0** differs from 2.0 as it automates more of the bug fixing process, including:
+        Automatically running jira jql query to avoid manual copying and pasting.
+
+**Version 2.1** removes the need to choose how you resolved the merge conflict. User now
+	presses enter to confirm that the conflict has been resolved and it will continue.
+
+**Version 2.0** automates the cherry-picking commands. No longer outputs to pick.sh, but holds
+	them in an array. Goes through all commands and executes them. If merge conflict
+	occurs it automatically opens VS code for the user to solve the merge conflict and
+	then prompts the user for how they resolved it. Based off of that, it automatically
+	chooses to cherry-pick --abort or cherry-pick --continue and moves on to the next
+	branch until all branches are cherry-picked
+	
+**Version 1.0** automates the creation of the cherry-picking commands by taking the git repo
+	that it is called in and collecting the branches. It then removes unwanted branches,
+	adds in checkout commands and cherry-pick commands with the commit id and saves them
+	all into pick.sh, which can be saved wherever the user prefers. User runs pick.sh,
+	solves merge conflicts and manually removes previously cherry-picked branches until
+	everything is solved.
 
 ## In progress
 1. Validation for Jira CHLC #, if incorrect there is no way to go back
