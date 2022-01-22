@@ -1,0 +1,10 @@
+#!/bin/bash
+
+while getopts "t:" flag; do
+  case "${flag}" in
+    t) chlc=${OPTARG} ;;
+  esac
+done
+
+url="https://securecodewarrior.atlassian.net/browse/CHLC-${chlc}?jql=project%20%3D%20CHLC%20AND%20issuetype%20%3D%20challenge%20AND%20issue%20in%20linkedIssues(CHLC-${chlc})%20ORDER%20BY%20created%20DESC"
+xdg-open $url
