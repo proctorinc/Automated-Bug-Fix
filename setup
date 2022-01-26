@@ -1,0 +1,4 @@
+#!/bin/bash
+sudo cp ./bug-fix-auto /usr/local/bin/bug-fix-auto
+sudo chmod +x /usr/local/bin/bug-fix-auto
+

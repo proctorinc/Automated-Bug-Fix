@@ -61,13 +61,11 @@ while getopts "dp" flag; do
   esac
 done
 
-# Cherry-picking script
+# Cherry-picking function
 # Automates the entire cherry-picking process. Makes commands automatically, Loops through them and
 # opens VS code to solve merge conflicts. Continues until all branches are cherry-picked successfully
 CherryPick() {
     debug=$1
-
-    echo -e "DEBUG: $debug"
 
     # Get git commit id
     id=$(git -C $PWD log | awk 'NR==1 {print $2}')
@@ -155,6 +153,9 @@ CherryPick() {
                 # Open VS Code to solve merge conflict
                 code .
 
+		# Remind user to resolve conflicts
+		echo -e "\n${YELLOW}1. Resolve conflict in VS code (Choose incoming or current)"
+		echo -e "${YELLOW}2. Press ctrl + s to save change (Otherwise branch may not update)"
                 echo -e "${DGRAY}Press ${LGREEN}[ENTER] ${DGRAY}when changes have been made${GREEN}"
                 read -s enter
 
@@ -199,7 +200,7 @@ fi
 # Make sure user has transitioned the CHLRQ first
 echo -e "${YELLOW}1. Transition CHLRQ to PLANNED (Fix version: current month)"
 echo -e "${YELLOW}2. Transition CHLRQ to START EXECUTION (In Progress)"
-echo -e "${YELLOW}3. Use screenshot + CMS to find which branch to make the fix on"
+echo -e "${YELLOW}3. Use CMS + Screenshot to find which branch to make the fix on"
 
 # Ask user for input until valid branch is entered
 while [[ $valid_branch != 1 ]]; do
@@ -228,7 +229,6 @@ while [[ $valid_branch != 1 ]]; do
 	# Branch exists, exit loop
 	valid_branch=1
     fi
-
 done
 
 if [[ $debug == 1 ]]; then
@@ -240,7 +240,7 @@ fi
 code .
 
 # Remind user to resolve conflicts
-echo -e "\n${YELLOW}1. Resolve conflict in VS code (Choose incoming or current)"
+echo -e "\n${YELLOW}1. Make the fix in VS Code"
 
 # Promp user for the commit decription
 echo -e "${DGRAY}Enter description of fix: ${WHITE}"
@@ -309,7 +309,7 @@ if [[ -n "$full_app" ]]; then
     echo -e "${DGRAY}Enter Grandparent CHLC# [ex: 1234]: ${WHITE}"
     read -p ":" chlc
 
-    echo -e "${DGRAY}Opening Jira with jql query..."
+    echo -e "\n${DGRAY}Opening Jira with jql query..."
 
     # Create url for browser opening
     url="https://securecodewarrior.atlassian.net/browse/CHLC-${chlc}?jql=project%20%3D%20%27CHLC%27%20and%20issuetype%3D%20challenge%20and%20issue%20in%20linkedIssues(%27CHLC-${chlc}%27)%20ORDER%20BY%20created%20DESC"
@@ -320,9 +320,9 @@ if [[ -n "$full_app" ]]; then
 
     # Remind user to follow steps in Jira
     echo -e "\n${YELLOW}Follow these steps in the open tab"
-    echo -e "1. Bulk change all: transition to FEEDBACK OPEN"
-    echo -e "2. Bulk change all: transition to FEEDBACK REVIEW"
-    echo -e "3. Bulk change all: Edit -> set assignee to Thomas and add CHLRQ number in comment [ex: CHLRQ-1234]"
+    echo -e "1. Bulk change all: Transition -> FEEDBACK OPEN"
+    echo -e "2. Bulk change all: Transition -> FEEDBACK REVIEW"
+    echo -e "3. Bulk change all: Edit -> Change assignee to Thomas and add CHLRQ number in comment [ex: CHLRQ-1234]"
 
 else
     # Prompt user to hit enter before repo is automatically pushed
