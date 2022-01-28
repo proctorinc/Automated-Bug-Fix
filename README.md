@@ -2,12 +2,12 @@
 
 Author: Matt Proctor
 
-Creation: 2022-01-19
+Creation: 2022-01-28
 
 ## Contact:
 If any issues or edge cases occur that should be handled, please email mproctor@securecodewarrior.com
 
-(For SCW Team Members: slack me on the securecodewarrior slack channel and I will look into fixes and updates)
+(For SCW Team Members: message me on the securecodewarrior slack channel and I will look into fixes and updates)
 
 ## About:
 Walks you through the process of bug fixing step by step. Automates as many steps as possible.
