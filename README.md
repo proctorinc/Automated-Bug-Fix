@@ -1,4 +1,4 @@
-# VERSION 3.2
+# VERSION 3.3
 
 Author: Matt Proctor
 
@@ -23,7 +23,7 @@ steps for closing, linking, and transitioning all CHLRQ's and CHLC's
 
 - Yellow text informs user of manual tasks to perform outside of the program (in browser)
 
-- Gray text with white colon informs user to input information
+- White text with white colon informs user to input information
 
 ## Setup and usage help:
 1. Save this file in /usr/local/bin so it can be called anywhere:
@@ -33,19 +33,31 @@ steps for closing, linking, and transitioning all CHLRQ's and CHLC's
 	command: sudo chmod +x /usr/local/bin/bug-fix-auto
 
 2. Clone repo from github and have the CMS and Jira tickets open
-3. Run the program (-d for debug, -p for nopush for testing):
+3. Run the program:
 
-	command: bug-fix-auto [-d] [-p]
+	command: bug-fix-auto [-d] [-p] [-r <repository>]
+	
+	-d sets debug mode, shows all commands that are run and their output
+	
+	-p sets nopush mode, doesn't push to repo for testing
+	
+	-r <repository> clones repository then runs bug-fix-auto inside of it. Replaces
+		repository if it already exists to avoid conflicts.
 
 4. Follow the Steps of the program
 
 	- Yellow means manual tasks outside of the program (ie: Jira)
 
-	- White colon means enter data
+	- White text means user input required
 
-	- Press [Enter] to confirm steps when prompted
+	- Press [Enter] to confirm steps when prompted and ready for next step
 
 ## Version History
+**Version 3.3** Removed cherry-picking for fixes on single vulnerable branch. Added steps for
+	minified app transitioning chlc. Added -r <repo> flag function that clones the repo
+	by user input of the repo name. See program running above for more details. Added chlc
+	validation to reduce mistakes. Changed text and formatting for easier use.
+
 **Version 3.2** Combined bug-fix-auto and cherrypick officially into one single program.
 	Cherrypick is now a method inside of the larger bug-fix program. Added arguments
 	for enabling debug mode and nopush mode (doesn't let the program push to the repo
