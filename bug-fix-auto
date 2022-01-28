@@ -1,24 +1,7 @@
 #!/bin/bash
-# Bug Fix Automation Program v3.2
+# Bug Fix Automation Program v3.3
 # Author: Matt Proctor
-# Date: 1/20/22
-
-# Contact:
-# If any issues or edge cases occur that should be handled, please email mproctor@securecodewarrior.com
-# Or slack me on the securecodewarrior slack channel and I will look into fixes and updates
-#
-# About:
-# Walks you through the process of bug fixing step by step. Automates as many steps as possible.
-# Automatically determines if repo is a full app and auto creates cherry-picking commands.
-# Automates cherry-picking process and shows progress. Opens VS code whenever a merge conflict
-# occurs. Opens up Jira with JQL query in browser with just the CHLC input. Reminds of final
-# steps for closing, linking, and transitioning all CHLRQ's and CHLC's
-#
-# Details:
-# - Supports minified and full apps, cherry-picks accordingly
-# - Stops user if errors occur. Ex: not a repo, no changes in repo, invalid input
-# - Yellow text informs user of manual tasks to perform outside of the program (in browser)
-# - Gray text with white colon informs user to input information
+# Date: 1/28/22
 
 # Colors
 RED='\033[0;31m'
@@ -40,26 +23,107 @@ debug=0
 # Check if user input is a valid branch
 valid_branch=0
 
+# Check if user input is a valid chlc
+valid_chlc=0
+
 # Check if repo is a full app
 full_app=$(git show-ref refs/remotes/origin/secure)
 
 # Program usage help
 print_usage() {
-    echo -e "${WHITE}Usage: bug-fix-auto [-p] [-d]"
+    echo -e "${WHITE}Usage: bug-fix-auto [-p] [-d] [-r <repo>]"
     echo -e "${WHITE}p: push disabled, disables push for debugging issues with the repo or running this script."
-    echo -e "\tNo worries of accidentally pushing tests to the repository"
-    echo -e "${WHITE}d: debug mode enabled, shows output of all commands in red"
+    echo -e "\tNo worries of accidentally pushing tests to the repository."
+    echo -e "${WHITE}d: debug mode enabled, shows output of all commands in red."
+    echo -e "${WHITE}r: clones repository automatically and runs bug-fix-auto inside of it. Removes and"
+    echo -e "\treplaces the repository if it already exists to avoid any errors."
+}
+
+# Function that clones the repo for the user and then runs bug-fix-auto inside of it
+CloneRepo() {
+    repo=$1
+    debug=$2
+    nopush=$3
+
+    # Make sure command is NOT run inside of a git repo
+    if [ -d .git ]; then
+        echo -e "${RED}Error: you cannot call bug-fix-auto -r <repo> from inside of a git repository"
+        echo -e "Call this command in your bug-fix folder outside of this repo"
+        exit 1
+    fi;
+
+    echo -e "${DGRAY}Cloning into repo..."
+
+    # Add validation checking
+    clone_result=$(git clone git@github.com:SCWContent/${repo}.git 2>&1)
+
+    # If repo already exists, remove it and clone it again
+    if echo $clone_result | grep -q "already exists and is not an empty directory"; then
+        echo -e "${GREEN}Repo exists. Removing and re-cloning repo"
+        sudo rm -r "$repo"
+        clone_result=$(git clone git@github.com:SCWContent/${repo}.git 2>&1)
+    
+    # If repo name is invalid, error and exit
+    elif echo $clone_result | grep -q "Repository not found."; then
+        echo -e "${RED}Invalid repository name: \"${repo}\" is not a valid repository"
+        echo -e "${RED}Details: \"git@github.com:SCWContent/${repo}.git\" is not valid."
+        exit 1
+    fi
+
+    echo -e "${LGREEN}COMPLETE\n"
+
+    # Navigate into repo
+    cd ${repo}
+
+    # Run bug-fix-auto in this repo, add flags if flags were used
+    if [[ $debug -eq 1 && $nopush -eq 1 ]]; then
+        bug-fix-auto -dp
+    elif [[ $debug -eq 1 ]]; then
+        bug-fix-auto -d
+    elif [[ $nopush -eq 1 ]]; then
+        bug-fix-auto -p
+    else
+        bug-fix-auto
+    fi
 }
 
 # Get arguments for enabling debug and nopush modes
-while getopts "dp" flag; do
+while getopts "dpr:" flag; do
   case "${flag}" in
-    d) debug=1 ;;
-    p) nopush=1 ;;
-    *) print_usage
-       exit 1 ;;
+    d)  debug=1 ;;
+    p)  nopush=1 ;;
+    r)  repo=$OPTARG
+        CloneRepo "$repo" "$debug" "$nopush"
+        exit 1 ;;
+    *)  print_usage
+        exit 1 ;;
   esac
 done
+
+# Make sure command is ran inside of a git repo
+if [ ! -d .git ]; then
+    echo -e "${RED}Error: this script must be called from inside of a git repository"
+    echo -e "Clone the repository from git first before running this script"
+    exit 1
+fi;
+
+if [[ $debug == 1 ]]; then
+    echo -e "${RED}DEBUG MODE ###############"
+fi
+
+if [[ $nopush == 1 ]]; then
+    echo -e "${RED}PUSH DISABLED ############"
+fi
+
+# Print repo
+echo -e "${DGRAY}Repo: ${CYAN}${PWD##*/}"
+
+# Check if this repo is a full app or a minified app
+if [[ -n "$full_app" ]]; then
+    echo -e "${DGRAY}Type: ${CYAN}Full App\n"
+else
+    echo -e "${DGRAY}Type: ${CYAN}Minified App\n"
+fi
 
 # Cherry-picking function
 # Automates the entire cherry-picking process. Makes commands automatically, Loops through them and
@@ -127,13 +191,22 @@ CherryPick() {
                 echo -e "${RED}ERROR: unsaved changes in current branch ($current_branch) make sure to add changes and commit before cherry-picking"
                 exit 1
 
+            elif echo $checkout_result | grep -q "The following untracked working tree files would be overwritten by checkout"; then
+                echo -e "${RED}$checkout_result"
+                git add *
+                git stash
+                git pull
+                echo -e "${RED}Fixed untracked files. Rerun program."
+
             # Detect Error: Unknown error occured
             else
                 # Alert user of unknown error, exit program
                 echo -e "${DGRAY}Checkout to $branch: ${RED}UNKNOWN ERROR - this error is not accounted for in the program"
                 echo -e "${RED}$checkout_result"
+                echo -e "${WHITE}Report unknown errors to mproctor@securecodewarrior. Provide screenshots and context."
                 exit 1
             fi
+
         # Successful checkout to branch
         else
             # Cherry-pick branch
@@ -153,9 +226,9 @@ CherryPick() {
                 # Open VS Code to solve merge conflict
                 code .
 
-		# Remind user to resolve conflicts
-		echo -e "\n${YELLOW}1. Resolve conflict in VS code (Choose incoming or current)"
-		echo -e "${YELLOW}2. Press ctrl + s to save change (Otherwise branch may not update)"
+                # Remind user to resolve conflicts
+                echo -e "\n${YELLOW}1. Resolve conflict in VS code (Choose incoming or current)"
+                echo -e "${YELLOW}2. Press ctrl + s to save change (Otherwise branch may not update)"
                 echo -e "${DGRAY}Press ${LGREEN}[ENTER] ${DGRAY}when changes have been made${GREEN}"
                 read -s enter
 
@@ -170,32 +243,8 @@ CherryPick() {
         # Increment count (aka step to next branch)
         count=$((count+1))
     done
-}
 
-# Make sure command is ran inside of a git repo
-if [ ! -d .git ]; then
-    echo -e "${RED}Error: this script must be called from inside of a git repository"
-    echo -e "Clone the repository from git first before running this script"
-    exit 1
-fi;
-
-if [[ $debug == 1 ]]; then
-    echo -e "${RED}DEBUG MODE ###############"
-fi
-
-if [[ $nopush == 1 ]]; then
-    echo -e "${RED}PUSH DISABLED ############"
-fi
-
-# Print repo
-echo -e "${DGRAY}Repo: ${CYAN}${PWD##*/}"
-
-# Check if this repo is a full app or a minified app
-if [[ -n "$full_app" ]]; then
-    echo -e "${DGRAY}Type: ${CYAN}Full App\n"
-else
-    echo -e "${DGRAY}Type: ${CYAN}Minified App\n"
-fi
+} # Cherrypick
 
 # Make sure user has transitioned the CHLRQ first
 echo -e "${YELLOW}1. Transition CHLRQ to PLANNED (Fix version: current month)"
@@ -206,12 +255,12 @@ echo -e "${YELLOW}3. Use CMS + Screenshot to find which branch to make the fix o
 while [[ $valid_branch != 1 ]]; do
 
     # Prompt user for branch to make fix on
-    echo -e "${DGRAY}Enter branch name (if fix happens in secure, you MUST enter secure): ${WHITE}"
+    echo -e "${WHITE}Enter branch name (if fix happens in secure, you MUST enter secure): ${WHITE}"
     read -p ":" branch
 
     if [[ $debug == 1 ]]; then
-	echo -e "${RED}Calling commands:"
-	echo -e "${RED}git checkout $branch"
+	    echo -e "${RED}Calling commands:"
+	    echo -e "${RED}git checkout $branch"
     fi
 
     # Checkout to the branch to fix
@@ -219,12 +268,12 @@ while [[ $valid_branch != 1 ]]; do
 
     # If error on checkout, branch does not exist
     if echo $checkout_result | grep -q "error"; then
-	if echo $checkout_result | grep -q "needs merge"; then
-	    echo -e "${RED}Repo needs merge. Fix repo before running this script"
-	    exit 1
-	else
-	    echo -e "${RED}Invalid branch. Branch does not exist"
-	fi
+        if echo $checkout_result | grep -q "needs merge"; then
+            echo -e "${RED}Repo needs merge. Fix repo before running this script"
+            exit 1
+        else
+            echo -e "${RED}Invalid branch. Branch does not exist"
+        fi
     else
 	# Branch exists, exit loop
 	valid_branch=1
@@ -243,7 +292,7 @@ code .
 echo -e "\n${YELLOW}1. Make the fix in VS Code"
 
 # Promp user for the commit decription
-echo -e "${DGRAY}Enter description of fix: ${WHITE}"
+echo -e "${WHITE}Enter description of fix: ${WHITE}"
 read -p ":" commit
 
 # Debug printing
@@ -271,7 +320,7 @@ if echo $commit_result | grep -q "nothing to commit"; then
 fi
 
 # If the repo is a full app, run cherry-picking
-if [[ -n "$full_app" ]]; then
+if [[ -n "$full_app" && $branch == "secure" ]]; then
 
     # Start cherry-picking
     echo -e "\n${DGRAY}Starting cherry-picking..."
@@ -282,8 +331,9 @@ if [[ -n "$full_app" ]]; then
 
     # If nopush mode is enabled, remind user program will not push
     if [[ $nopush == 1 ]]; then
-	echo -e "${RED}(Push is disabled for debugging)"
+	    echo -e "${RED}(Push is disabled for debugging)"
     fi
+    
     read -s finish
 
     echo -e "\n${DGRAY}Pushing to repo${GREEN}"
@@ -299,15 +349,25 @@ if [[ -n "$full_app" ]]; then
     fi
 
     # Remind user to follow steps in Jira
-    echo -e "\n${YELLOW}Follow these steps:"
-    echo -e "1. Close CHLRQ and comment commit description:"
+    echo -e "\n${YELLOW}1. Close CHLRQ and comment commit description:"
     echo -e "${WHITE}>\t$commit"
     echo -e "${YELLOW}2. Link CHLRQ to parent CHLC (choose 'relates to')"
     echo -e "3. In the CMS update all branches to the latest"
 
-    # Prompt for CHLC input
-    echo -e "${DGRAY}Enter Grandparent CHLC# [ex: 1234]: ${WHITE}"
-    read -p ":" chlc
+    while [[ $valid_chlc != 1 ]]; do
+        # Prompt for CHLC input
+        echo -e "${WHITE}Enter ${LGREEN}Grand-parent ${WHITE}CHLC# [ex: 1234]"
+        echo -e "${DGRAY}Grand-parent CHLC is found in the CMS below the git repo link${WHITE}"
+        read -p ":" chlc
+
+        # Validate if chlc is 4 digits
+        if [[ ${#chlc} -eq 4 && $chlc =~ [0-9] ]]; then
+            valid_chlc=1
+        else
+            echo -e "${RED}Invalid CHLC. Enter 4-digits: ####"
+        fi
+
+    done
 
     echo -e "\n${DGRAY}Opening Jira with jql query..."
 
@@ -334,7 +394,7 @@ else
     fi
     read -s finish
 
-    echo -e "${DGRAY}Pushing to repo"
+    echo -e "\n${DGRAY}Pushing to repo"
 
     # Debug printing
     if [[ $debug == 1 ]]; then
@@ -345,6 +405,40 @@ else
     if [[ $nopush == 0 ]]; then
         git push --all
     fi
+
+    # Remind user to follow steps in Jira
+    echo -e "\n${YELLOW}1. Close CHLRQ and comment commit description:"
+    echo -e "${WHITE}>\t$commit"
+    echo -e "${YELLOW}2. Link CHLRQ to parent CHLC (choose 'relates to')"
+    echo -e "3. In the CMS update branch to the latest"
+
+    while [[ $valid_chlc != 1 ]]; do
+        # Prompt for CHLC input
+        echo -e "${WHITE}Enter ${LGREEN}Parent ${WHITE}CHLC# [ex: 1234]"
+        echo -e "${DGRAY}Parent CHLC is the CHLC that you just linked to the CHLRQ${WHITE}"
+        read -p ":" chlc
+
+        # Validate if chlc is 4 digits
+        if [[ ${#chlc} -eq 4 && $chlc =~ [0-9] ]]; then
+            valid_chlc=1
+        else
+            echo -e "${RED}Invalid CHLC. Enter 4-digits: ####"
+        fi
+
+    done
+
+    # Create url for browser opening
+    url="https://securecodewarrior.atlassian.net/browse/CHLC-${chlc}"
+
+    # Line may need to be changes based off of operating system
+    # Linux browser open command:
+    xdg-open $url &>/dev/null
+
+    # Remind user to follow steps in Jira
+    echo -e "\n${YELLOW}Follow these steps in the open tab"
+    echo -e "1. Transition -> FEEDBACK OPEN"
+    echo -e "2. Transition -> FEEDBACK REVIEW"
+    echo -e "3. Edit -> Change assignee to Thomas and add CHLRQ number in comment [ex: CHLRQ-1234]"
 fi
 
 # Finished bug fix process
