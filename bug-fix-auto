@@ -1,7 +1,7 @@
 #!/bin/bash
-# Bug Fix Automation Program v3.3
+# Bug Fix Automation Program v3.4
 # Author: Matt Proctor
-# Date: 1/28/22
+# Date: 2/23/22
 
 # Colors
 RED='\033[0;31m'
@@ -13,6 +13,8 @@ CYAN='\033[0;36m'
 YELLOW='\033[1;33m'
 LGREEN='\033[1;32m'
 WHITE='\033[1;37m'
+
+VERSION='3.4'
 
 # Disable push for debugging
 nopush=0
@@ -28,6 +30,9 @@ valid_chlc=0
 
 # Check if repo is a full app
 full_app=$(git show-ref refs/remotes/origin/secure)
+
+# Set default commit to unsuccessful
+successful_commit=0
 
 # Program usage help
 print_usage() {
@@ -88,8 +93,10 @@ CloneRepo() {
 }
 
 # Get arguments for enabling debug and nopush modes
-while getopts "dpr:" flag; do
+while getopts "vdpr:" flag; do
   case "${flag}" in
+    v)  echo "Version: ${VERSION}"
+        exit 1 ;;
     d)  debug=1 ;;
     p)  nopush=1 ;;
     r)  repo=$OPTARG
@@ -186,10 +193,10 @@ CherryPick() {
                 echo -e "${RED}BAD: MERGE CONFLICT WAS NOT SOLVED"
 
             # Detect Error: repo has not committed before cherry-picking
-            elif echo $checkout_result | grep -q "Your local changes to the following files would be overwritten by checkout"; then
+            # elif echo $checkout_result | grep -q "Your local changes to the following files would be overwritten by checkout"; then
 
-                echo -e "${RED}ERROR: unsaved changes in current branch ($current_branch) make sure to add changes and commit before cherry-picking"
-                exit 1
+            #     echo -e "${RED}ERROR: unsaved changes in current branch ($current_branch) make sure to add changes and commit before cherry-picking"
+            #     exit 1
 
             elif echo $checkout_result | grep -q "The following untracked working tree files would be overwritten by checkout"; then
                 echo -e "${RED}$checkout_result"
@@ -295,29 +302,35 @@ echo -e "\n${YELLOW}1. Make the fix in VS Code"
 echo -e "${WHITE}Enter description of fix: ${WHITE}"
 read -p ":" commit
 
-# Debug printing
-if [[ $debug == 1 ]]; then
-    echo -e "${RED}Calling commands:"
-    echo -e "${RED}git add${GREEN}"
-fi
+while [[ $successful_commit == 0 ]]; do
 
-# Run add command, no output
-git add . &>/dev/null
+    # Debug printing
+    if [[ $debug == 1 ]]; then
+        echo -e "${RED}Calling commands:"
+        echo -e "${RED}git add${GREEN}"
+    fi
 
-# Make commit and store output
-commit_result=$(git commit -m "$commit")
+    # Run add command, no output
+    git add . &>/dev/null
 
-# Debug printing
-if [[ $debug == 1 ]]; then
-    echo -e "${RED}git commit -m"
-    echo -e "Result: $commit_result"
-fi
+    # Make commit and store output
+    commit_result=$(git commit -m "$commit")
 
-# Check for no changes in repo
-if echo $commit_result | grep -q "nothing to commit"; then
-    echo -e "${RED}No changes were made to the repo. Nothing to commit."
-    exit 1
-fi
+    # Debug printing
+    if [[ $debug == 1 ]]; then
+        echo -e "${RED}git commit -m"
+        echo -e "Result: $commit_result"
+    fi
+
+    # Check for no changes in repo
+    if echo $commit_result | grep -q "nothing to commit"; then
+        echo -e "${RED}No changes were made to the repo. Save your changes with ctrl + s before committing"
+        echo -e "${DGRAY}Press ${LGREEN}[ENTER] ${DGRAY}after you have made changes${GREEN}"
+        read -s enter
+    else
+        successful_commit=1
+    fi
+done
 
 # If the repo is a full app, run cherry-picking
 if [[ -n "$full_app" && $branch == "secure" ]]; then
@@ -394,7 +407,7 @@ else
     fi
     read -s finish
 
-    echo -e "\n${DGRAY}Pushing to repo"
+    echo -e "\n${DGRAY}Pushing to repo${GREEN}"
 
     # Debug printing
     if [[ $debug == 1 ]]; then
@@ -411,6 +424,7 @@ else
     echo -e "${WHITE}>\t$commit"
     echo -e "${YELLOW}2. Link CHLRQ to parent CHLC (choose 'relates to')"
     echo -e "3. In the CMS update branch to the latest"
+    echo -e "${LGREEN}4. If fix added/removed a line, realign chunks"
 
     while [[ $valid_chlc != 1 ]]; do
         # Prompt for CHLC input
