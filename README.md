@@ -25,6 +25,16 @@ steps for closing, linking, and transitioning all CHLRQ's and CHLC's
 
 - White text with white colon informs user to input information
 
+## Files
+### bug-fix-auto
+- Main bug fix program. Run to fix a bug on a repository
+
+### setup
+- Setup file. Run this program to make the program executable and runnable
+
+### auto-jql
+- Temp file to open jql query in jira. Part of the main bug-fix-auto program. Can be used if you need to access the list of CHLC's separately
+
 ## Setup and usage help:
 1. Save this file in /usr/local/bin so it can be called anywhere:
 
