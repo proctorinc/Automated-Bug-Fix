@@ -1,8 +1,8 @@
-# VERSION 3.3
+# VERSION 3.4
 
 Author: Matt Proctor
 
-Creation: 2022-01-28
+Creation: 2022-02-23
 
 ## Contact:
 If any issues or edge cases occur that should be handled, please email mproctor@securecodewarrior.com
@@ -53,6 +53,11 @@ steps for closing, linking, and transitioning all CHLRQ's and CHLC's
 	- Press [Enter] to confirm steps when prompted and ready for next step
 
 ## Version History
+**Version 3.4** Added loop if changes are not made to repo. Reminds user to make a change. Added
+	-v flag to get current program version. Removed exit for cherry-picking overwriting commit
+	error experienced by users. Made other visual improvements including output color and
+	reminder to edit chunks if multiple lines are added or removed.
+
 **Version 3.3** Removed cherry-picking for fixes on single vulnerable branch. Added steps for
 	minified app transitioning chlc. Added -r <repo> flag function that clones the repo
 	by user input of the repo name. See program running above for more details. Added chlc
